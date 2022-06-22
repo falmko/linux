@@ -1,0 +1,19 @@
+#define __LIBRARY__
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
+_syscall3(int,execve2,const char *, file,char **, argv,char **, envp)
+_syscall3(unsigned int,getdents,unsigned int, fd,struct linux_dirent *,dirp,unsigned int ,count)
+_syscall1(unsigned int,sleep,unsigned int, seconds)
+_syscall2(unsigned long,getcwd,char *,buf,size_t ,size)
+
+int main(void) {
+	char *argv[] = {"./echo", "I am test_echo.\n", NULL};
+    	char *env[] = {NULL};
+    	execve2("./echo", argv, env);
+	printf("end!\n");
+	return 0;
+}
+
