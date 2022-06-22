@@ -144,11 +144,10 @@
 #define __NR_lstat	84
 #define __NR_readlink	85
 #define __NR_uselib	86
-#define __NR_execve2	87
-#define __NR_getdents	88
-#define __NR_sleep	89
-#define __NR_getcwd	90
-
+#define __NR_execve2 87
+#define __NR_getdents 88
+#define __NR_sleep 89
+#define __NR_getcwd 90
 
 #define _syscall0(type,name) \
 type name(void) \
@@ -270,10 +269,10 @@ int getppid(void);
 pid_t getpgrp(void);
 pid_t setsid(void);
 
-int execve2(const char *file,char **argv,char **envp);
+int execve2(const char *path,char * argv[],char * envp[]);
 int getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count);
 int sleep(unsigned int seconds);
-long getcwd(char* buf,size_t size);
+long getcwd(char *buf,size_t size);
 
 #define __always_inline inline __attribute__((always_inline))
 
