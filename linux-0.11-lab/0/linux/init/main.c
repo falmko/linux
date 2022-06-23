@@ -7,6 +7,8 @@
 #define __LIBRARY__
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
+
 
 
 /*
@@ -26,13 +28,11 @@ __always_inline _syscall0(int,fork)
 __always_inline _syscall0(int,pause)
 __always_inline _syscall1(int,setup,void *,BIOS)
 __always_inline _syscall0(int,sync)
+/*__always_inline _syscall3(int,execve2,const char *, path,char **, argv,char **, envp)
+__always_inline _syscall3(unsigned int,getdents,unsigned int, fd,struct linux_dirent *,dirp,unsigned int ,count)
+__always_inline _syscall1(unsigned int,sleep,unsigned int, seconds)
+__always_inline _syscall2(unsigned int,getcwd,char *,buf,size_t ,size)*/
 
-/*
-__always_inline _syscall3(int,execve2,const char *,path,char **,argv,char **,envp)
-__always_inline _syscall3(int,getdents,unsigned int,fd,struct linux_dirent *,dirp,unsigned int, count)
-__always_inline _syscall1(int,sleep,unsigned int, seconds)
-__always_inline _syscall2(long ,getcwd,char *,buf,size_t,size)
-*/
 #include <linux/tty.h>
 #include <linux/sched.h>
 #include <linux/head.h>
@@ -143,7 +143,6 @@ void main(void)		/* This really IS void, no error here. */
 	floppy_init();
 	sti();
 	move_to_user_mode();
-
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}
@@ -217,9 +216,19 @@ void init(void)
 	_exit(0);	/* NOTE! _exit, not exit() */
 }
 
-int sys_execve2(const char *path,char * argv[],char * envp[])
+
+int sys_execve2(const char *file,char **argv,char **envp)
 {
-	printf("execve2 success\n");
+	unsigned long Eip[5];
+	Eip[0]=0;
+	Eip[1]=0x000f;
+	Eip[2]=0;
+	Eip[3]=0;
+	long Tmp=0;
+	do_execve(&Eip,Tmp,file,argv,envp);
+	return 1;
+
+	
 }
 
 int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
@@ -229,31 +238,39 @@ int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
 
 int sys_sleep(unsigned int seconds)
 {
-	struct sigaction new ,old;
-	sigset_t newmask, oldmask,suspmask;
-		unsigned int ret = 0;
-		new,sa_handler = sig_alarm;
-		sigemptyset(&new,sa_mask);
-		new ,sa_flags=0;
-		sigaction(SIGALRM,&new,&old);
-
-		sigemptyset(&newmask);
-		sigaddset(&newmask,SIGALRM);
-		sigprocmask(SIG_BLOCK,&newmask,&oldmask);
-
-
-		alarm(seconds);
-		suspmask = oldmask;
-		sigdelset(&suspmask,SIGALRM);
-		sigsuspend(&suspmask);
-		//pause();
-		ret = alarm(0);
-		sigaction(SIGALRM,&old,NULL);
-		sigprocmask(SIG_SETMASK,&oldmask,NULL);
-		return ret;
+	sys_signal(SIGALRM,SIG_IGN);
+	sys_alarm(seconds);
+	sys_pause();
+	return 0;
 }
 
-long sys_getcwd(char *buf,size_t size)
+long sys_getcwd(char* buf,size_t size)
 {
 	printf("getcwd success\n");
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
