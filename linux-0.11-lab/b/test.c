@@ -1,15 +1,14 @@
+
+
 #define __LIBRARY__
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 
-_syscall3(int,execve2,const char *, file,char **, argv,char **, envp)
-_syscall3(unsigned int,getdents,unsigned int, fd,struct linux_dirent *,dirp,unsigned int ,count)
-_syscall1(unsigned int,sleep,unsigned int, seconds)
-_syscall2(unsigned long,getcwd,char *,buf,size_t ,size)
+_syscall1(unsigned int,sleep,unsigned int,seconds)
 
-int main(void) {
+void test_sleep() {
 	time_t time1, time2;
 	int ret;
 	time(&time1);
@@ -25,7 +24,10 @@ int main(void) {
 	}else{
 		printf("sleep error.\n");
 	}
-	
+}
+
+int main(void) {
+	test_sleep();
 	return 0;
 }
 
