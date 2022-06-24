@@ -43,8 +43,8 @@ __always_inline _syscall2(unsigned int,getcwd,char *,buf,size_t ,size)*/
 #include <stdarg.h>
 #include <fcntl.h>
 #include <sys/types.h>
-
 #include <linux/fs.h>
+#include <asm/segment.h>
 
 static char printbuf[1024];
 
@@ -58,7 +58,6 @@ extern void mem_init(long start, long end);
 extern long rd_init(long mem_start, int length);
 extern long kernel_mktime(struct tm * tm);
 extern long startup_time;
-
 /*
  * This is set up by the setup-routine at boot-time
  */
@@ -107,6 +106,7 @@ static long buffer_memory_end = 0;
 static long main_memory_start = 0;
 
 struct drive_info { char dummy[32]; } drive_info;
+
 
 void main(void)		/* This really IS void, no error here. */
 {			/* The startup routine assumes (well, ...) this */
@@ -216,29 +216,51 @@ void init(void)
 	_exit(0);	/* NOTE! _exit, not exit() */
 }
 
+/* start four system calls sys_execve2, sys_getdents, sys_sleep, sys_getcwd */
 
-int sys_execve2(const char *file,char **argv,char **envp)
-{
-	unsigned long Eip[5];
-	Eip[0]=0;
-	Eip[1]=0x000f;
-	Eip[2]=0;
-	Eip[3]=0;
-	long Tmp=0;
-	do_execve(&Eip,Tmp,file,argv,envp);
-	return 1;
-
-	
-}
+struct linux_dirent{
+	long d_ino;
+	off_t d_off;
+	unsigned short d_reclen;
+	char d_name[];
+};
 
 int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
 {
-	printf("getdents success\n");
+	/*	by zyj	    */
+	struct m_inode *zyj_m_inode;
+	struct buffer_head *zyj_buffer_head;
+	struct dir_entry *zyj_dir_entry;
+	struct linux_dirent zyj_linux_dir;
+	int i, j, res;
+	i = 0;
+	res = 0;
+	zyj_m_inode = current->filp[fd]->f_inode;
+	zyj_buffer_head = bread(zyj_m_inode->i_dev, zyj_m_inode->i_zone[0]);
+	zyj_dir_entry = (struct dir_entry *)zyj_buffer_head->b_data;
+	while (zyj_dir_entry[i].inode>0)
+	{
+		if (res + sizeof(struct linux_dirent) > count)
+		    break;
+		zyj_linux_dir.d_ino = zyj_dir_entry[i].inode;
+		zyj_linux_dir.d_off = 0;
+		zyj_linux_dir.d_reclen = sizeof(struct linux_dirent);
+		for (j = 0; j < 14; j++)
+		{
+		    zyj_linux_dir.d_name[j] = zyj_dir_entry[i].name[j];
+		}
+		for(j = 0;j <sizeof(struct linux_dirent); j++){
+		    put_fs_byte(((char *)(&zyj_linux_dir))[j],(char *)dirp + res);
+		    res++;
+		}
+		i++;
+	}
+	return res;
 }
 
 int sys_sleep(unsigned int seconds)
 {
-	sys_signal(SIGALRM,SIG_IGN);
+	sys_signal(SIGALRM, SIG_IGN);
 	sys_alarm(seconds);
 	sys_pause();
 	return 0;
@@ -246,12 +268,11 @@ int sys_sleep(unsigned int seconds)
 
 long sys_getcwd(char* buf,size_t size)
 {
-	printf("getcwd success\n");
+	
 }
 
 void sys_zyj()
 {
-	
 }
 
 
