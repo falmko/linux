@@ -218,6 +218,20 @@ void init(void)
 
 /* start four system calls sys_execve2, sys_getdents, sys_sleep, sys_getcwd */
 
+/*
+int sys_execve2(const char *file,char **argv,char **envp)
+{
+	unsigned long Eip[5];
+	Eip[0]=0;
+	Eip[1]=0x000f;
+	Eip[2]=0;
+	Eip[3]=0;
+	long Tmp=0;
+	do_execve(&Eip,Tmp,file,argv,envp);
+	return 1;
+}
+*/
+
 struct linux_dirent{
 	long d_ino;
 	off_t d_off;
@@ -249,7 +263,8 @@ int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
 		{
 		    zyj_linux_dir.d_name[j] = zyj_dir_entry[i].name[j];
 		}
-		for(j = 0;j <sizeof(struct linux_dirent); j++){
+		for(j = 0;j <sizeof(struct linux_dirent); j++)
+		{
 		    put_fs_byte(((char *)(&zyj_linux_dir))[j],(char *)dirp + res);
 		    res++;
 		}
@@ -260,19 +275,21 @@ int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
 
 int sys_sleep(unsigned int seconds)
 {
+	/*	by zyj	    */
 	sys_signal(SIGALRM, SIG_IGN);
 	sys_alarm(seconds);
 	sys_pause();
 	return 0;
 }
 
-long sys_getcwd(char* buf,size_t size)
+long sys_getcwd(char * buf, size_t size)
 {
-	
 }
 
 void sys_zyj()
 {
+	/*	by zyj      */
+	/* nothing */
 }
 
 
