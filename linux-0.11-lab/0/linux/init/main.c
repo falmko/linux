@@ -221,13 +221,7 @@ void init(void)
 /*
 int sys_execve2(const char *file,char **argv,char **envp)
 {
-	unsigned long Eip[5];
-	Eip[0]=0;
-	Eip[1]=0x000f;
-	Eip[2]=0;
-	Eip[3]=0;
-	long Tmp=0;
-	do_execve(&Eip,Tmp,file,argv,envp);
+
 	return 1;
 }
 */
@@ -239,38 +233,47 @@ struct linux_dirent{
 	char d_name[];
 };
 
+#define    dir_size	sizeof(struct linux_dirent)
+
 int sys_getdents(unsigned int fd,struct linux_dirent *dirp,unsigned int count)
 {
-	/*	by zyj	    */
-	struct m_inode *zyj_m_inode;
-	struct buffer_head *zyj_buffer_head;
-	struct dir_entry *zyj_dir_entry;
-	struct linux_dirent zyj_linux_dir;
-	int i, j, res;
-	i = 0;
-	res = 0;
-	zyj_m_inode = current->filp[fd]->f_inode;
-	zyj_buffer_head = bread(zyj_m_inode->i_dev, zyj_m_inode->i_zone[0]);
-	zyj_dir_entry = (struct dir_entry *)zyj_buffer_head->b_data;
-	while (zyj_dir_entry[i].inode>0)
+		/*		by zyj	    
+		先根据当前目录的文件描述符获取当前目录的索引节点，
+		再根据索引节点获取该目录文件的数据，依次遍历每个页表项。*/
+	
+	struct m_inode *z_m_inode;
+	struct buffer_head *z_buffer_head;
+	struct dir_entry *z_dir_entry;
+	
+	z_m_inode = current->filp[fd]->f_inode;
+	z_buffer_head = bread(z_m_inode->i_dev, z_m_inode->i_zone[0]);
+	z_dir_entry = (struct dir_entry *)z_buffer_head->b_data;
+	
+	int i=0, j, res=0;
+	struct linux_dirent z_linux_dir;
+	while (z_dir_entry[i].inode>0)
 	{
-		if (res + sizeof(struct linux_dirent) > count)
+		if (res + dir_size > count)
 		    break;
-		zyj_linux_dir.d_ino = zyj_dir_entry[i].inode;
-		zyj_linux_dir.d_off = 0;
-		zyj_linux_dir.d_reclen = sizeof(struct linux_dirent);
+
+		z_linux_dir.d_reclen = dir_size;
+		z_linux_dir.d_ino = z_dir_entry[i].inode;
+		z_linux_dir.d_off = 0;
+		
 		for (j = 0; j < 14; j++)
 		{
-		    zyj_linux_dir.d_name[j] = zyj_dir_entry[i].name[j];
-		}
-		for(j = 0;j <sizeof(struct linux_dirent); j++)
-		{
-		    put_fs_byte(((char *)(&zyj_linux_dir))[j],(char *)dirp + res);
-		    res++;
+		    z_linux_dir.d_name[j] = z_dir_entry[i].name[j];
 		}
 		i++;
+
+		for(j = 0;j <dir_size; j++)
+		{
+		    // 内核态和用户态之间的读写需要put_fs_ 函数
+		    put_fs_byte(((char *)(&z_linux_dir))[j],(char *)dirp + res);
+		    res++;
+		}
 	}
-	return res;
+	return 0;
 }
 
 int sys_sleep(unsigned int seconds)
@@ -282,8 +285,67 @@ int sys_sleep(unsigned int seconds)
 	return 0;
 }
 
+
 long sys_getcwd(char * buf, size_t size)
 {
+	/*		by zyj      
+	先获取当前进程父目录的索引节点，然后根据索引节点
+	读取上一级目录数据，遍历目录项。再根据上一级目录的索引节点号
+	得到上上级目录的索引节点号并读取数据，遍历目录项。
+	通过对比得到父目录的文件名，在通过这种方式到当前进程的根目录，
+	再依次得到各级目录的文件名。*/
+    struct m_inode *inode = current->pwd;
+    struct buffer_head *path_head = bread(current->root->i_dev, inode->i_zone[0]);
+    struct dir_entry *getpath = (struct dir_entry *)path_head->b_data;
+    struct m_inode *y_inode;
+    unsigned short z_inode;
+    char* path_buf[512]; 
+    char *tmp_buf;
+    int i = 0,count=0,k;
+
+
+    while(1) 
+    {
+        z_inode = getpath->inode;
+        y_inode = iget(current->root->i_dev, (getpath + 1)->inode);
+        path_head = bread(current->root->i_dev, y_inode->i_zone[0]);
+        getpath = (struct dir_entry*) path_head->b_data;
+
+        int j = 1;
+        while((getpath + j)->inode != z_inode) 
+            j++;
+
+        if (j == 1)
+            break;
+
+        path_buf[i] = (getpath + j)->name;
+        i++;
+    }
+
+    i--;
+    if (i < 0)
+        return NULL;
+
+    while (i >= 0)
+    {
+        k = 0;
+        tmp_buf[count++] = '/';
+        while(path_buf[i][k] != '\0')
+        {
+            tmp_buf[count] = path_buf[i][k];
+            k++;
+            count++;
+        }
+        i--;
+    }
+
+    if (count < 0)
+        return NULL;
+
+    for (k = 0; k < count; k++)
+        put_fs_byte(tmp_buf[k], buf+k);
+
+    return (long)(tmp_buf);
 }
 
 void sys_zyj()
